@@ -1,0 +1,11 @@
+apiVersion: kscp.io/v1alpha1
+kind: VaultRole
+metadata:
+  name: teste
+spec:
+  boundServiceAccounts:
+    - teste
+  boundNamespaces:
+    - teste
+  policies:
+    - teste

@@ -1,0 +1,8 @@
+apiVersion: 
+kind: VaultResources
+metadata:
+  name: drone-app
+  namespace: drone
+spec:
+  - kind: VaultRole
+    ...

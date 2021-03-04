@@ -1,0 +1,10 @@
+apiVersion: kscp.io/v1alpha1
+kind: VaultPolicy
+metadata:
+  name: test
+spec:
+  rules:
+  - path: test
+    capabilities:
+      - read
+      - create

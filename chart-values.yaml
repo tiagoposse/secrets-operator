@@ -1,0 +1,69 @@
+
+fullnameOverride: kscp
+
+
+certificateGenerator:
+  enabled: true
+  autoApproveCertificate: true
+
+injector:
+  enabled: true
+
+  replicaCount: 1
+
+  podAnnotations:
+    autocert.step.sm/init-first: "true"
+    autocert.step.sm/name: kscp-injector.secretsplane.svc
+    autocert.step.sm/duration: 4380h
+    autocert.step.sm/bootstrapper-only: "true"
+    vault.hashicorp.com/agent-inject: "true"
+    vault.hashicorp.com/role: kscp-injector
+    vault.hashicorp.com/ca-cert: /var/run/autocert.step.sm/root.crt
+    vault.hashicorp.com/agent-inject-token: "true"
+
+  image:
+    repository: registry.tiagoposse.com/kscp-injector
+    pullPolicy: Always
+    tag: dev-36
+
+  service:
+    type: ClusterIP
+    port: 443
+
+controller:
+  image:
+    repository: registry.tiagoposse.com/kscp-controller
+    tag: dev-16
+    pullPolicy: Always
+
+  podAnnotations:
+    autocert.step.sm/init-first: "true"
+    autocert.step.sm/name: secretsplane
+    autocert.step.sm/sans: kscp-controller.secretsplane.svc,kscp-controller.secretsplane.svc.cluster.local
+    autocert.step.sm/duration: 4380h
+    autocert.step.sm/bootstrapper-only: "true"
+    vault.hashicorp.com/agent-inject: "true"
+    vault.hashicorp.com/role: kscp-controller
+    vault.hashicorp.com/ca-cert: /var/run/autocert.step.sm/root.crt
+    vault.hashicorp.com/agent-inject-token: "true"
+
+backends:
+  vault:
+    enabled: true
+    address: https://vault.tiagoposse.com
+    token_path: /vault/secrets/token
+    ca_cert: /var/run/autocert.step.sm/root.crt
+
+
+pluginProcessor:
+  enabled: true
+
+  service:
+    type: ClusterIP
+    port: 443
+
+init:
+  image:
+    repository: registry.tiagoposse.com/kscp-init
+    pullPolicy: Always
+    tag: dev-12

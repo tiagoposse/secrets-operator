@@ -1,0 +1,5 @@
+FROM registry.tiagoposse.com/kscp-base:1.0.0
+
+COPY init/main.py /app/
+
+ENTRYPOINT [ "python", "/app/main.py" ]

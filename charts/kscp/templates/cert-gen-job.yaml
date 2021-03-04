@@ -1,0 +1,30 @@
+{{- if .Values.certificateGenerator.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "certificateGenerator.fullname" . }}
+  labels:
+    {{- include "certificateGenerator.labels" . | nindent 4 }}
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "certificateGenerator.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "certificateGenerator.serviceAccountName" .  }}
+      containers:
+        - name: certificate-generator
+          image: "{{ .Values.certificateGenerator.image.repository }}:{{ .Values.certificateGenerator.image.tag | default "latest" }}"
+          command:
+            - ./generate_certificate.sh
+          args:
+            - --service
+            - {{ include "injector.fullname" . }}
+            - --webhook
+            - {{ include "injector.fullname" . }}
+            - --secret
+            - {{ include "injector.fullname" . }}
+            - --namespace
+            - {{ .Release.Namespace }}
+      restartPolicy: OnFailure
+{{- end }}

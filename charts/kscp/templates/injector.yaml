@@ -1,0 +1,113 @@
+{{- if .Values.injector.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "injector.fullname" . }}
+  labels:
+    {{- include "injector.labels" . | nindent 4 }}
+spec:
+{{- if not .Values.injector.autoscaling.enabled }}
+  replicas: {{ .Values.injector.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "injector.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.injector.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "injector.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "injector.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.injector.image.repository }}:{{ .Values.injector.image.tag | default "latest" }}"
+          imagePullPolicy: {{ .Values.injector.image.pullPolicy }}
+          command:
+            - python
+          args:
+            - -u
+            - /app/server.py
+          env:
+            - name: CERT_FILE_PATH
+              value: {{ .Values.injector.certPath }}
+            - name: CERT_KEY_PATH
+              value: {{ .Values.injector.keyPath }}
+            - name: INIT_IMAGE
+              value: "{{ .Values.init.image.repository }}:{{ .Values.init.image.tag | default "latest" }}"
+            - name: USE_PROCESSOR
+              value: {{ .Values.pluginProcessor.enabled | quote }}
+            {{- if .Values.backends.aws.enabled }}
+            - name: AWS_ACCOUNT_ID
+              value: {{ .Values.backends.aws.accountID }}
+            - name: USE_AWS
+              value: "true"
+            - name: AWS_REGION
+              value: {{ .Values.backends.aws.region }}
+            {{- end }}
+            {{- if .Values.backends.gcp.enabled }}
+            - name: GCP_PROJECT_ID
+              value: {{ .Values.backends.gcp.projectID }}
+            - name: USE_GCP
+              value: "true"
+            {{- end }}
+            {{- if .Values.backends.vault.enabled }}
+            - name: USE_VAULT
+              value: "true"
+            - name: VAULT_ADDR
+              value: {{ .Values.backends.vault.address }}
+            - name: VAULT_TOKEN_PATH
+              value: {{ .Values.backends.vault.token_path }}
+
+            {{- end }}
+            {{- range $name, $value := .Values.injector.env }}
+            - name: {{ $name }}
+              value: {{ $value }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 443
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTPS
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTPS
+          resources:
+            {{- toYaml .Values.injector.resources | nindent 12 }}
+          volumeMounts:
+            - name: tls-certificate
+              mountPath: /tlsconfig
+      {{- with .Values.injector.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.injector.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.injector.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: tls-certificate
+          secret:
+            secretName: {{ include "injector.fullname" . }}
+{{- end }}

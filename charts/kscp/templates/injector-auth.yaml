@@ -1,0 +1,40 @@
+{{- if .Values.injector.serviceAccount.create -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "injector.serviceAccountName" . }}
+  labels:
+    {{- include "injector.labels" . | nindent 4 }}
+  {{- with .Values.injector.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+{{- if .Values.injector.rbac.create }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "injector.fullname" . }}
+rules:
+  - apiGroups: [kscp.io]
+    resources: ["*"]
+    verbs: [get]
+
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "injector.fullname" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "injector.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "injector.serviceAccountName" . | quote }}
+    namespace: {{ .Release.Namespace | quote }}
+{{- end }}

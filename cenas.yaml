@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kscp-controller
+  labels:
+    helm.sh/chart: kscp-0.1.0
+    app.kubernetes.io/name: kscp
+    app.kubernetes.io/instance: kscp
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+    component.kscp.io: controller---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kscp-controller
+rules:
+  #Framework: knowing which other operators are running (i.e. peering).
+  - apiGroups: [kopf.dev]
+    resources: [clusterkopfpeerings]
+    verbs: [list, watch, patch, get]
+
+  # Framework: runtime observation of namespaces & CRDs (addition/deletion).
+  - apiGroups: [apiextensions.k8s.io]
+    resources: [customresourcedefinitions]
+    verbs: [list, watch]
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [list, watch]
+
+  - apiGroups: [kscp.io]
+    resources: ["*"]
+    verbs: ["*"]
+
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kscp-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kscp-controller
+subjects:
+  - kind: ServiceAccount
+    name: "kscp-controller"
+    namespace: "secretsplane"
