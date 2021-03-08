@@ -35,8 +35,8 @@ Create chart name and version as used by the chart label.
 {{- printf "%s-injector" (include "kscp.fullname" .) }}
 {{- end }}
 
-{{- define "controller.fullname" -}}
-{{- printf "%s-controller" (include "kscp.fullname" .) }}
+{{- define "operator.fullname" -}}
+{{- printf "%s-operator" (include "kscp.fullname" .) }}
 {{- end }}
 
 {{- define "certificateGenerator.fullname" -}}
@@ -73,11 +73,11 @@ component.kscp.io: injector
 {{- end }}
 
 {{/*
-Controller labels
+operator labels
 */}}
-{{- define "controller.labels" -}}
+{{- define "operator.labels" -}}
 {{- include "kscp.labels" . }}
-component.kscp.io: controller
+component.kscp.io: operator
 {{- end }}
 
 {{/*
@@ -97,11 +97,11 @@ component.kscp.io: injector
 {{- end }}
 
 {{/*
-Controller selector labels
+operator selector labels
 */}}
-{{- define "controller.selectorLabels" -}}
+{{- define "operator.selectorLabels" -}}
 {{- include "kscp.selectorLabels" . }}
-component.kscp.io: controller
+component.kscp.io: operator
 {{- end }}
 
 {{/*
@@ -116,13 +116,13 @@ Create the name of the injector service account to use
 {{- end }}
 
 {{/*
-Create the name of the controller service account to use
+Create the name of the operator service account to use
 */}}
-{{- define "controller.serviceAccountName" -}}
-{{- if .Values.controller.serviceAccount.create }}
-{{- default (printf "%s-controller" (include "kscp.fullname" .)) .Values.controller.serviceAccount.name }}
+{{- define "operator.serviceAccountName" -}}
+{{- if .Values.operator.serviceAccount.create }}
+{{- default (printf "%s-operator" (include "kscp.fullname" .)) .Values.operator.serviceAccount.name }}
 {{- else }}
-{{- default (printf "%s-controller" (include "kscp.fullname" .)) .Values.controller.serviceAccount.name }}
+{{- default (printf "%s-operator" (include "kscp.fullname" .)) .Values.operator.serviceAccount.name }}
 {{- end }}
 {{- end }}
 
@@ -136,3 +136,14 @@ Create the name of the cert-gen service account to use
 {{- default (printf "%s-cert-gen" (include "kscp.fullname" .)) .Values.certificateGenerator.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+
+{{- define "kscp.backends" -}}
+{{- $backends := "" }}
+{{- range $backend, $values := .Values.backends }}
+{{- if $values.enabled  }}
+{{- $backends = printf "%s,%s" $backends $backend }}
+{{- end }}
+{{- end }}
+{{- printf $backends | trimPrefix "," }}
+{{- end -}}

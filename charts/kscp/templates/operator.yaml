@@ -1,55 +1,51 @@
-{{- if .Values.controller.enabled }}
+{{- if .Values.operator.enabled }}
+
 {{- $tlsEnabled := (and (ne .Values.pluginProcessor.tlsCertPath "") (ne .Values.pluginProcessor.tlsKeyPath "")) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "controller.fullname" . }}
+  name: {{ include "operator.fullname" . }}
   labels:
-    {{- include "controller.labels" . | nindent 4 }}
+    {{- include "operator.labels" . | nindent 4 }}
 spec:
-{{- if not .Values.controller.autoscaling.enabled }}
-  replicas: {{ .Values.controller.replicaCount }}
+{{- if not .Values.operator.autoscaling.enabled }}
+  replicas: {{ .Values.operator.replicaCount }}
 {{- end }}
   selector:
     matchLabels:
-      {{- include "controller.selectorLabels" . | nindent 6 }}
+      {{- include "operator.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-    {{- with .Values.controller.podAnnotations }}
+    {{- with .Values.operator.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
     {{- end }}
       labels:
-        {{- include "controller.selectorLabels" . | nindent 8 }}
+        {{- include "operator.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "controller.serviceAccountName" . }}
+      serviceAccountName: {{ include "operator.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: controller
+        - name: operator
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag | default "latest" }}"
-          imagePullPolicy: {{ .Values.controller.image.pullPolicy }}
-          command:
-            - kopf
-          args:
-            - run
-            - /app/main.py  
+          image: "{{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag | default "latest" }}"
+          imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
           env:
-            - name: PYTHONBUFFERED
-              value: "1"
-            {{- range $name, $value := .Values.controller.env }}
+            - name: KSCP_BACKENDS
+              value: {{ include "kscp.backends" . }}
+            - name: BACKEND_AUTH
+              value: {{ .Values.backendRBAC }}
+            {{- range $name, $value := .Values.operator.env }}
             - name: {{ $name }}
               value: {{ $value }}
             {{- end }}
             {{- if .Values.backends.vault.enabled }}
-            - name: USE_VAULT
-              value: "true"
             - name: VAULT_ADDR
               value: {{ .Values.backends.vault.address }}
               {{- if .Values.backends.vault.ca_cert }}
@@ -58,20 +54,18 @@ spec:
               {{- end }}
             - name: VAULT_TOKEN
               value: {{ .Values.backends.vault.token_path }}
+            - name: VAULT_DEFAULT_MOUNT_POINT
+              value: {{ .Values.backends.vault.defaultMountPoint }}
             {{- end }}
             {{- if .Values.backends.aws.enabled }}
             - name: AWS_ACCOUNT_ID
               value: {{ .Values.backends.aws.accountID }}
-            - name: USE_AWS
-              value: "true"
             - name: AWS_REGION
               value: {{ .Values.backends.aws.region }}
             {{- end }}
             {{- if .Values.backends.gcp.enabled }}
             - name: GCP_PROJECT_ID
               value: {{ .Values.backends.gc.projectID }}
-            - name: USE_GCP
-              value: "true"
             {{- end }}
           # ports:
           #   - name: http
@@ -88,16 +82,16 @@ spec:
           #     port: http
           #     scheme: HTTPS
           resources:
-            {{- toYaml .Values.controller.resources | nindent 12 }}
-      {{- with .Values.controller.nodeSelector }}
+            {{- toYaml .Values.operator.resources | nindent 12 }}
+      {{- with .Values.operator.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.controller.affinity }}
+      {{- with .Values.operator.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.controller.tolerations }}
+      {{- with .Values.operator.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}

@@ -7,12 +7,15 @@ fullnameOverride: ""
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+backendRBAC: false
+
 backends:
   vault:
     enabled: false
     address: ""
     token_path: ""
     ca_cert: ""
+    defaultMountPoint: kv
 
   aws:
     enabled: false
@@ -41,7 +44,7 @@ injector:
     repository: registry.tiagoposse.com/kscp-injector
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
-    tag: dev-2
+    tag: dev-1
 
   certPath: /tlsconfig/tls.crt
   keyPath: /tlsconfig/tls.key
@@ -99,13 +102,13 @@ certificateGenerator:
     # If not set and create is true, a name is generated using the fullname template
     name: ""
 
-controller:
+operator:
   enabled: true
 
   replicaCount: 1
 
   image:
-    repository: registry.tiagoposse.com/kscp-controller
+    repository: registry.tiagoposse.com/kscp-operator
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
     tag: ""

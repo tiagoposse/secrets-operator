@@ -29,16 +29,11 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: injector
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.injector.image.repository }}:{{ .Values.injector.image.tag | default "latest" }}"
           imagePullPolicy: {{ .Values.injector.image.pullPolicy }}
-          command:
-            - python
-          args:
-            - -u
-            - /app/server.py
           env:
             - name: CERT_FILE_PATH
               value: {{ .Values.injector.certPath }}
@@ -48,28 +43,27 @@ spec:
               value: "{{ .Values.init.image.repository }}:{{ .Values.init.image.tag | default "latest" }}"
             - name: USE_PROCESSOR
               value: {{ .Values.pluginProcessor.enabled | quote }}
+            - name: KSCP_BACKENDS
+              value: {{ include "kscp.backends" . }}
+            - name: BACKEND_AUTH
+              value: {{ .Values.backendRBAC }}
             {{- if .Values.backends.aws.enabled }}
+            - name: AWS_SHARED_CREDENTIALS_FILE
+              value: {{ .Values.backends.aws.credentialsPath }}
             - name: AWS_ACCOUNT_ID
               value: {{ .Values.backends.aws.accountID }}
-            - name: USE_AWS
-              value: "true"
-            - name: AWS_REGION
+            - name: AWS_DEFAULT_REGION
               value: {{ .Values.backends.aws.region }}
             {{- end }}
             {{- if .Values.backends.gcp.enabled }}
             - name: GCP_PROJECT_ID
               value: {{ .Values.backends.gcp.projectID }}
-            - name: USE_GCP
-              value: "true"
             {{- end }}
             {{- if .Values.backends.vault.enabled }}
-            - name: USE_VAULT
-              value: "true"
             - name: VAULT_ADDR
               value: {{ .Values.backends.vault.address }}
             - name: VAULT_TOKEN_PATH
               value: {{ .Values.backends.vault.token_path }}
-
             {{- end }}
             {{- range $name, $value := .Values.injector.env }}
             - name: {{ $name }}

@@ -1,0 +1,8 @@
+FROM registry.tiagoposse.com/kscp-base:1.0.0
+
+RUN pip install flask jsonpatch
+
+COPY controller /app/controller
+COPY injector /app/injector
+
+ENTRYPOINT [ "python", "/app/injector/main.py" ]

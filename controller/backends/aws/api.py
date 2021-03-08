@@ -1,14 +1,12 @@
 import boto3
 import json
-import kopf
 
 from os import environ
 
 from utils import generate_secret_values, get_change_path
 
-if environ.get('USE_AWS') in [ 'true', 'True', 'TRUE' ]:
-  __client = boto3.client('secretsmanager')
-  __aws_account_id = environ.get('aws_account_id')
+def get_api_instance():
+  return AWSBackend()
 
 aws_policy_template = {
   "Version": "2012-10-17",
@@ -24,80 +22,88 @@ aws_policy_template = {
   ]
 }
 
-
-@kopf.on.create('awssecrets.kscp.io')
-def create_secret(name, namespace, spec, **kwargs):
-  '''
-    Process the creation of an awssecrets resource
-  '''
-
-  response = __client.create_secret(
-    Name=name,
-    ClientRequestToken='string',
-    SecretBinary=generate_secret_values(spec.get('values')).encode('utf-8')
-  )
+class AWSBackend:
+  def __init__(self):
+    self.__client = boto3.client('secretsmanager')
+    self.__aws_account_id = environ.get('aws_account_id')
 
 
-@kopf.on.delete('awssecrets.kscp.io')
-def delete_secret(name, namespace, spec, **kwargs):
-  '''
-    Process the deletion of an awssecrets resource
-  '''
+  def create_secret(self, name, namespace, spec):
+    '''
+      Process the creation of an awssecrets resource
+    '''
 
-  response = __client.delete_secret(
-    RecoveryWindowInDays=7,
-    SecretId=name,
-  )
+    path = f"{ namespace }/{ name }" if spec.get('path') is None else spec.get('path')
 
+    self.__client.create_secret(
+      Name=path,
+      ClientRequestToken='string',
+      SecretBinary=generate_secret_values(spec.get('values')).encode('utf-8')
+    )
 
-@kopf.on.update('awssecrets.kscp.io')
-def update_secret(name, namespace, old, new, diff, **kwargs):
-  '''
-    Process the update of an awssecrets resource
-  '''
+    return path
 
-  values = read_aws_secret(name)
+  def delete_secret(self, name, namespace, spec):
+    '''
+      Process the deletion of an awssecrets resource
+    '''
+    path = f"{ namespace }/{ name }" if spec.get('path') is None else spec.get('path')
 
-  for op, path, old_val, new_val in diff:
-    change_path = get_change_path(path)
-
-    if not change_path.startswith('.spec.values.'):
-      continue
-
-    if op == 'delete':
-      del values[path[-1]]
-    else:
-      values[path[-1]] = new_val
-
-  __client.put_secret_value(
-    SecretId=f"{ namespace }-{ name }",
-    SecretBinary=generate_secret_values(values).encode('utf-8')
-  )
+    self.__client.delete_secret(
+      RecoveryWindowInDays=7,
+      SecretId=path,
+    )
 
 
-def read_aws_secret(name):
-  return __client.get_secret_value(
-    SecretId=name
-  ).SecretBinary.decode('utf-8')
+  def update_secret(self, name, namespace, old, new, diff):
+    '''
+      Process the update of an awssecrets resource
+    '''
+
+    values = self.read_secret(name)
+
+    for op, path, old_val, new_val in diff:
+      change_path = get_change_path(path)
+
+      if not change_path.startswith('.spec.values.'):
+        continue
+
+      if op == 'delete':
+        del values[path[-1]]
+      else:
+        values[path[-1]] = new_val
+
+    self.__client.put_secret_value(
+      SecretId=f"{ namespace }-{ name }",
+      SecretBinary=generate_secret_values(values).encode('utf-8')
+    )
 
 
-def grant_aws_access(s_account, name):
-  pol = aws_policy_template.copy()
-  pol['Statement']['Principal']['AWS'] += f"{ __aws_account_id }:{ s_account }"
-  
-  __client.put_resource_policy(
-    SecretId=name,
-    ResourcePolicy=json.dumps(pol),
-    BlockPublicPolicy=True|False
-  )
+  def get_secret(self, name, namespace, spec):
+    path = f"{ namespace }/{ name }" if spec.get('path') is None else spec.get('path')
 
-def revoke_aws_access(s_account, name):
-  pass
-  # pol = aws_policy_template.copy()
-  # pol['Statement']['Principal']['AWS'] += f"{ __aws_account_id }:{ s_account }"
+    return self.__client.get_secret_value(
+      SecretId=path
+    ).SecretBinary.decode('utf-8')
 
-  # __client.put_resource_policy(
-  #   SecretId=name,
-  #   ResourcePolicy=json.dumps(pol),
-  #   BlockPublicPolicy=True|False
-  # )
+
+  def grant_access(self, s_account, name, namespace):
+    pol = aws_policy_template.copy()
+    pol['Statement']['Principal']['AWS'] += f"{ self.__aws_account_id }:{ s_account }"
+    
+    self.__client.put_resource_policy(
+      SecretId=name,
+      ResourcePolicy=json.dumps(pol),
+      BlockPublicPolicy=True|False
+    )
+
+  def revoke_access(self, s_account, name, namespace):
+    pass
+    # pol = aws_policy_template.copy()
+    # pol['Statement']['Principal']['AWS'] += f"{ __aws_account_id }:{ s_account }"
+
+    # self.__client.put_resource_policy(
+    #   SecretId=name,
+    #   ResourcePolicy=json.dumps(pol),
+    #   BlockPublicPolicy=True|False
+    # )

@@ -1,39 +1,28 @@
-
 import logging
+import sys
 
 from flask import Flask, request, jsonify
-from os import environ
+from os import environ, path
 from ssl import SSLContext, PROTOCOL_TLSv1_2
 
-from clients import setup_clients
-from processor import KSCPProcessor
-from webhook import mutate
-from injector import KSCPInjector
+sys.path.append(path.join(path.dirname(path.abspath(__file__)), "../"))
+
+from controller.crd_processors.secretbindings import SecretBindingsController
+from controller.crd_processors.secrets import SecretsController
+from controller.controller import KSCPController
+from injector.processor import KSCPProcessor
+from injector.webhook import mutate
 
 app = Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
 
-USE_VAULT = environ.get('USE_VAULT') in [ 'true', 'True' ]
-USE_GCP = environ.get('USE_GCP') in [ 'true', 'True' ]
-USE_AWS = environ.get('USE_AWS') in [ 'true', 'True' ]
-
-# Create injector
-injector = KSCPInjector(
-  USE_VAULT,
-  USE_GCP,
-  USE_AWS
-)
-
-processor = KSCPProcessor(*setup_clients(
-  USE_VAULT,
-  USE_GCP,
-  USE_AWS
-))
-
+controller = KSCPController()
+sb_controller = SecretBindingsController(controller)
+processor = KSCPProcessor(SecretsController(controller))
 
 @app.route('/mutate', methods=['POST'])
 def mutate_webhook():
-  allowed, patch = mutate(injector, request.json["request"])
+  allowed, patch = mutate(sb_controller, request.json["request"])
 
   admission_response = {
       "allowed": allowed,
@@ -54,13 +43,13 @@ def health():
 if environ.get('USE_PROCESSOR'):
   @app.route('/readsecret', methods=['POST'])
   def read_secret():
-      values = processor.process_secret_read(
-        request.json['auth'],
-        request.json['secret'],
-        request.json['namespace']
-      )
+    ret_code, values = processor.process_secret_read(
+      request.form.get('auth'),
+      request.form.get('name'),
+      request.form.get('namespace')
+    )
 
-      return jsonify({'data': values })
+    return jsonify({'data': values }), ret_code
 
 
 if __name__ == '__main__':

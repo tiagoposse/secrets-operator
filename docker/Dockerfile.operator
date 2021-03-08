@@ -1,0 +1,8 @@
+FROM registry.tiagoposse.com/kscp-base:1.0.0
+
+RUN pip install --pre kopf
+
+COPY controller /app/controller
+COPY operator /app/operator
+
+ENTRYPOINT [ "python", "/app/operator/main.py" ]

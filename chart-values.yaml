@@ -24,26 +24,26 @@ injector:
   image:
     repository: registry.tiagoposse.com/kscp-injector
     pullPolicy: Always
-    tag: dev-36
+    tag: dev-1
 
   service:
     type: ClusterIP
     port: 443
 
-controller:
+operator:
   image:
-    repository: registry.tiagoposse.com/kscp-controller
-    tag: dev-16
+    repository: registry.tiagoposse.com/kscp-operator
+    tag: dev-1
     pullPolicy: Always
 
   podAnnotations:
     autocert.step.sm/init-first: "true"
     autocert.step.sm/name: secretsplane
-    autocert.step.sm/sans: kscp-controller.secretsplane.svc,kscp-controller.secretsplane.svc.cluster.local
+    autocert.step.sm/sans: kscp-operator.secretsplane.svc,kscp-operator.secretsplane.svc.cluster.local
     autocert.step.sm/duration: 4380h
     autocert.step.sm/bootstrapper-only: "true"
     vault.hashicorp.com/agent-inject: "true"
-    vault.hashicorp.com/role: kscp-controller
+    vault.hashicorp.com/role: kscp-operator
     vault.hashicorp.com/ca-cert: /var/run/autocert.step.sm/root.crt
     vault.hashicorp.com/agent-inject-token: "true"
 
@@ -66,4 +66,4 @@ init:
   image:
     repository: registry.tiagoposse.com/kscp-init
     pullPolicy: Always
-    tag: dev-12
+    tag: dev-1

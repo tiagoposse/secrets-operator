@@ -1,127 +1,134 @@
-import kopf
+import json
 
 from os import environ
 from google.cloud import secretmanager
 
 from utils import generate_secret_values, get_change_path
 
-if environ.get('USE_AWS') in [ 'true', 'True', 'TRUE' ]:
-  __project_id = environ.get('PROJECT_ID')
-  __client = secretmanager.SecretManagerServiceClient()
+
+def get_api_instance():
+  return GCPBackend()
+
+class GCPBackend:
+  def __init__(self):
+    self.__client = secretmanager.SecretManagerServiceClient()
+    self.__project_id = f"{ environ.get('GCP_PROJECT_ID') }"
 
 
-@kopf.on.create('gcpsecrets.kscp.io')
-def create_secret(name, namespace, spec, **_):
-  '''
-    Process the creation of an gcpsecrets resource
-  '''
+  def create_secret(self, name, namespace, spec):
+    '''
+      Process the creation of an gcpsecrets resource
+    '''
 
-  parent = f"projects/{ __project_id }"
+    # Build a dict of settings for the secret
+    secret = {'replication': {'automatic': {}}}
+    secret_name = spec.get('path')
 
-  # Build a dict of settings for the secret
-  secret = {'replication': {'automatic': {}}}
-  secret_name = f"{ namespace }-{ name }"
-
-  # Create the secret
-  __client.create_secret(
-    secret_id=secret_name,
-    parent=parent,
-    secret=secret
-  )
-
-  add_secret_version(
-    secret_name,
-    parent,
-    generate_secret_values(spec.get('values'))
-  )
-
-
-@kopf.on.delete('gcpsecrets.kscp.io')
-def delete_secret(name, namespace, **_):
-  '''
-    Process the deletion of an gcpsecrets resource
-  '''
-
-  secret_name = f"{ namespace }-{ name }"
-  resource_name = __client.secret_path(__project_id, secret_name)
-
-  __client.delete_secret(request={"name": resource_name})
-
-
-@kopf.on.update('gcpsecrets.kscp.io')
-def update_secret(name, namespace, old, new, diff, **kwargs):
-  '''
-    Process the update of an gcpsecrets resource
-  '''
-  secret_name = f"{ namespace }-{ name }"
-
-  values = read_gcp_secret(secret_name)
-
-  for op, path, old_val, new_val in diff:
-    change_path = get_change_path(path)
-
-    if not change_path.startswith('.spec.values.'):
-      continue
-
-    if op == 'delete':
-      del values[path[-1]]
-    else:
-      values[path[-1]] = new_val
-
-  add_secret_version(
-    secret_name,
-    f"projects/{__project_id}",
-    generate_secret_values(values)
-  )
-
-
-
-def add_secret_version(secret_id, project_id, payload):
-    """
-    Create a new version for the secret using the new values
-    """
-
-    response = __client.add_secret_version(
-      parent=f"projects/{project_id}/secrets/{secret_id}",
-      payload={ 'data': payload.encode('UTF-8') }
+    # Create the secret
+    self.__client.create_secret(
+      secret_id=secret_name,
+      parent=f"projects/{ self.__project_id }",
+      secret=secret
     )
 
-    # Print the new secret version name.
-    print(f'Added secret version: {response.name}')
+    path = self.__client.secret_path(self.__project_id, secret_name)
+    self.__add_secret_version(
+      path,
+      generate_secret_values(spec.get('values'))
+    )
+
+  def get_secret(self, spec):
+    path = self.__client.secret_path(self.__project_id, spec.get('path'))
+
+    response = self.__client.access_secret_version(request={"name": f"{ path }/versions/latest" })
+    return json.loads(response.payload.data.decode("UTF-8"))
 
 
-def grant_gcp_access(s_account, name, namespace):
-    """
-    Grant the given member access to a secret.
-    """
+  def delete_secret(self, name, namespace, spec):
+    '''
+      Process the deletion of an gcpsecrets resource
+    '''
+    path = self.__client.secret_path(self.__project_id, spec.get('path'))
 
-    resource_name = __client.secret_path(__project_id, f"{ namespace }-{ name }")
-
-    policy = __client.get_iam_policy(request={"resource": resource_name})
-    policy.bindings.add(role="roles/secretmanager.secretAccessor", members=[s_account])
-    __client.set_iam_policy(request={"resource": resource_name, "policy": policy})
-
-    # Print data about the secret.
-    print("Updated IAM policy on {}".format(name))
+    self.__client.delete_secret(request={"name": path})
 
 
-def revoke_gcp_access(s_account, name, namespace):
-    """
-    Revoke the given member access to a secret.
-    """
-  
-    resource_name = __client.secret_path(__project_id, f"{ namespace }-{ name }")
+  def update_secret(self, name, namespace, old, new, diff):
+    '''
+      Process the update of an gcpsecrets resource
+    '''
 
-    policy = __client.get_iam_policy(request={"resource": resource_name})
+    __trigger_move = new.get('spec').get('path') != old.get('spec').get('path')
 
-    # Remove the given member's access permissions.
-    accessRole = "roles/secretmanager.secretAccessor"
-    for b in list(policy.bindings):
+    values = self.get_secret(old.get('spec'))
+
+    for op, path, old_val, new_val in diff:
+      change_path = get_change_path(path)
+
+      if not change_path.startswith('.spec.values.'):
+        continue
+
+      if op == 'delete':
+        del values[path[-1]]
+      else:
+        values[path[-1]] = new_val
+
+    new_spec = new['spec'].copy()
+    new_spec['values'] = generate_secret_values(values)
+
+    if __trigger_move:
+      self.delete_secret(name, namespace, old)
+      self.create_secret(name, namespace, new_spec)
+    else:
+      path = self.__client.secret_path(self.__project_id, new.get('spec').get('path'))
+      self.__add_secret_version(path, values)
+
+
+  def __add_secret_version(self, path, payload):
+      """
+      Create a new version for the secret using the new values
+      """
+
+      response = self.__client.add_secret_version(
+          request={"parent": path, "payload": {"data": json.dumps(payload).encode('utf-8') }}
+      )
+
+      # Print the new secret version name.
+      print(f'Added secret version: {response.name}')
+
+
+  def grant_access(self, s_account, name, namespace, policies):
+      """
+      Grant the given member access to a secret.
+      """
+
+      resource_name = self.__client.secret_path(self.__project_id, f"{ namespace }-{ name }")
+
+      policy = self.__client.get_iam_policy(request={"resource": resource_name})
+      policy.bindings.add(role="roles/secretmanager.secretAccessor", members=[s_account])
+      self.__client.set_iam_policy(request={"resource": resource_name, "policy": policy})
+
+      # Print data about the secret.
+      print("Updated IAM policy on {}".format(name))
+
+
+  def revoke_access(self, s_account, name, namespace):
+      """
+      Revoke the given member access to a secret.
+      """
+    
+      resource_name = self.__client.secret_path(self.__project_id, f"{ namespace }-{ name }")
+
+      policy = self.__client.get_iam_policy(request={"resource": resource_name})
+
+      # Remove the given member's access permissions.
+      accessRole = "roles/secretmanager.secretAccessor"
+      for b in list(policy.bindings):
         if b.role == accessRole and s_account in b.members:
-            b.members.remove(s_account)
+          b.members.remove(s_account)
 
-    # Update the IAM Policy.
-    new_policy = __client.set_iam_policy(request={"resource": resource_name, "policy": policy})
+      # Update the IAM Policy.
+      new_policy = self.__client.set_iam_policy(request={"resource": resource_name, "policy": policy})
 
-    # Print data about the secret.
-    print("Updated IAM policy on {}".format(resource_name))
+      # Print data about the secret.
+      print("Updated IAM policy on {}".format(resource_name))
