@@ -1,7 +1,0 @@
-FROM registry.tiagoposse.com/kscp-base:1.0.0
-
-RUN pip install --pre kopf
-
-COPY controller /app
-
-ENTRYPOINT [ "python", "/app/server.py" ]

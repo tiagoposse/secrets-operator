@@ -2,11 +2,9 @@ import hvac
 import logging
 import os
 
-from typing import Tuple
-
 logger = logging.getLogger('tool')
 
-def get_vault_client():
+def get_vault_client() -> hvac.Client:
     addr = os.environ['VAULT_ADDR']
     logger.debug(f"Setting up vault connection to { addr }")
 

@@ -1,13 +1,15 @@
 import kubernetes
 import logging
 
+from controller.controller import KSCPController
+
 logger = logging.getLogger()
 
 class SecretBindingsController:
-  def __init__(self, controller):
+  def __init__(self, controller: KSCPController):
     self.__controller = controller
 
-  def get_secretbinding_spec(self, name, namespace):
+  def get_secretbinding_spec(self, name: str, namespace: str):
     api_instance = kubernetes.client.CustomObjectsApi(self.__controller.get_backend_client('k8s'))
     return api_instance.get_namespaced_custom_object(
       'kscp.io',
@@ -17,22 +19,23 @@ class SecretBindingsController:
       name
     )
 
-  def update_secret_binding(self, name, namespace, new, old):
+  def update_secret_binding(self, name: str, namespace: str, new: dict, old: dict):
     '''
       Process the update of a secretbindings resource
     '''
+
     self.delete_secret_binding(name, namespace, old.get('spec'))
     self.create_secret_binding(name, namespace, new.get('spec'))
 
 
-  def create_secret_binding(self, name, namespace, spec):
+  def create_secret_binding(self, name: str, namespace: str, spec: dict):
     '''
       Process the creation of a secretbindings resource
     '''
 
     self.__controller.grant_access(name, namespace, spec)
 
-  def delete_secret_binding(self, name, namespace, spec):
+  def delete_secret_binding(self, name: str, namespace: str, spec: dict):
     '''
       Process the deletion of a secretbindings resource
     '''

@@ -5,9 +5,11 @@ logger = logging.getLogger()
 
 
 class AccessEngine:
-  def __init__(self, clients, is_auth_backend):
+  def __init__(self, clients, is_auth_backend, allow_by_default):
     self.__clients = clients
     self.__is_backend_auth = is_auth_backend
+    self.__allow_by_default = allow_by_default
+
 
   def grant_access(self, name, namespace, spec):
     if self.__is_backend_auth:
@@ -17,6 +19,7 @@ class AccessEngine:
     
     fn(name, namespace, spec)
 
+
   def revoke_access(self, name, namespace, spec):
     if self.__is_backend_auth:
       fn = self.__revoke_access_in_backend
@@ -24,7 +27,6 @@ class AccessEngine:
       fn = self.__revoke_access_in_k8s
     
     fn(name, namespace, spec)
-
 
 
   def __grant_access_in_backend(self, name, namespace, spec):

@@ -3,8 +3,6 @@ import json
 
 from os import environ
 
-from utils import generate_secret_values, get_change_path
-
 def get_api_instance():
   return AWSBackend()
 
@@ -33,58 +31,45 @@ class AWSBackend:
       Process the creation of an awssecrets resource
     '''
 
-    path = f"{ namespace }/{ name }" if spec.get('path') is None else spec.get('path')
-
     self.__client.create_secret(
-      Name=path,
-      ClientRequestToken='string',
-      SecretBinary=generate_secret_values(spec.get('values')).encode('utf-8')
+      Name=spec.get('path'),
+      SecretBinary=json.dumps(spec.get('values')).encode('utf-8')
     )
 
-    return path
+    return spec.get('path')
 
   def delete_secret(self, name, namespace, spec):
     '''
       Process the deletion of an awssecrets resource
     '''
-    path = f"{ namespace }/{ name }" if spec.get('path') is None else spec.get('path')
 
     self.__client.delete_secret(
       RecoveryWindowInDays=7,
-      SecretId=path,
+      SecretId=spec.get('path'),
     )
 
 
-  def update_secret(self, name, namespace, old, new, diff):
+  def update_secret(self, name, namespace, __trigger_move, __trigger_value_change, old_spec, new_spec):
     '''
       Process the update of an awssecrets resource
     '''
 
     values = self.read_secret(name)
 
-    for op, path, old_val, new_val in diff:
-      change_path = get_change_path(path)
-
-      if not change_path.startswith('.spec.values.'):
-        continue
-
-      if op == 'delete':
-        del values[path[-1]]
-      else:
-        values[path[-1]] = new_val
-
-    self.__client.put_secret_value(
-      SecretId=f"{ namespace }-{ name }",
-      SecretBinary=generate_secret_values(values).encode('utf-8')
-    )
+    if __trigger_move:
+      self.delete_secret(name, namespace, old_spec)
+      self.create_secret(name, namespace, new_spec)
+    elif __trigger_value_change:
+      self.__client.put_secret_value(
+        SecretId=f"{ namespace }-{ name }",
+        SecretBinary=json.dumps(new_spec.get('values')).encode('utf-8')
+      )
 
 
   def get_secret(self, name, namespace, spec):
-    path = f"{ namespace }/{ name }" if spec.get('path') is None else spec.get('path')
-
-    return self.__client.get_secret_value(
-      SecretId=path
-    ).SecretBinary.decode('utf-8')
+    return json.loads(self.__client.get_secret_value(
+      SecretId=spec.get('path')
+    ).SecretBinary.decode('utf-8'))
 
 
   def grant_access(self, s_account, name, namespace):

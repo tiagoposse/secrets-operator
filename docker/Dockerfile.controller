@@ -1,0 +1,3 @@
+FROM registry.tiagoposse.com/kscp-base:1.0.0
+
+COPY kscp/controller /app/controller

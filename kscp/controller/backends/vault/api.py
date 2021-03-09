@@ -2,9 +2,7 @@ import logging
 
 from os import environ
 
-from controller.backends.vault.client import get_vault_client
-from controller.utils import generate_secret_values, get_change_path
-
+from backends.vault.client import get_vault_client
 
 logger = logging.getLogger()
 
@@ -26,7 +24,7 @@ class VaultBackend:
     
     self.__client.secrets.kv.v2.create_or_update_secret(
       path,
-      secret=generate_secret_values(spec.get('values')),
+      secret=spec.get('values'),
       mount_point=mount_point
     )
     logger.debug(f"Created secret { mount_point }/{ path } in vault.")
@@ -43,6 +41,7 @@ class VaultBackend:
     '''
       Process the deletion of a vaultsecrets resource
     '''
+  
     mount_point, path = self.__get_mount_point_and_path(spec.get('path'), name, namespace)
 
     self.__client.secrets.kv.v2.delete_metadata_and_all_versions(
@@ -58,40 +57,15 @@ class VaultBackend:
     # logger.debug(f"Deleted policy {policy_name}")
 
 
-  def update_secret(self, name, namespace, old, new, diff):
+  def update_secret(self, name, namespace, __trigger_move, __trigger_value_change, old_spec, new_spec):
     '''
       Process the update of a vaultsecrets resource
     '''
 
-    new_spec = new.copy()
-    __trigger_value_change = False
-    __trigger_move = False
-
-    if old.get('path') is None: # this is an operator mutation
-      return True
-
-    values = self.get_secret(old.get('path'))
-
-    for op, path, old_val, new_val in diff:
-      change_path = get_change_path(path)
-      
-      if change_path in [ '.spec.path', '.spec.mountPoint' ]:
-        __trigger_move = True
-        continue
-      elif change_path.startswith('.spec.values.'):
-        __trigger_value_change = True
-
-        if op == 'delete':
-          del values[path[-1]]
-        else:
-          values[path[-1]] = new_val
-
     if __trigger_move:
-      self.delete_secret(name, namespace, old)
+      self.delete_secret(name, namespace, old_spec)
       
-    if __trigger_value_change or __trigger_move:
-      new_spec['values'] = generate_secret_values(values)
-      # logger.debug(new_spec['spec']['values'])
+    elif __trigger_value_change or __trigger_move:
       self.create_secret(name, namespace, new_spec)
 
     return True

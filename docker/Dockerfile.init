@@ -2,6 +2,6 @@ FROM registry.tiagoposse.com/kscp-base:1.0.0
 
 RUN pip install requests
 
-COPY init/main.py /app/
+COPY kscp/retriever/main.py /app/
 
 ENTRYPOINT [ "python", "/app/main.py" ]

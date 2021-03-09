@@ -40,7 +40,9 @@ spec:
             - name: KSCP_BACKENDS
               value: {{ include "kscp.backends" . }}
             - name: BACKEND_AUTH
-              value: {{ .Values.backendRBAC }}
+              value: {{ .Values.rbac.backend }}
+            - name: ALLOW_BY_DEFAULT
+              value: {{ .Values.rbac.defaultAllow }}
             {{- range $name, $value := .Values.operator.env }}
             - name: {{ $name }}
               value: {{ $value }}

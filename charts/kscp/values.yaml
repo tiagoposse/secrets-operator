@@ -7,7 +7,9 @@ fullnameOverride: ""
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-backendRBAC: false
+rbac:
+  backend: false
+  defaultAllow: false
 
 backends:
   vault:
@@ -57,9 +59,6 @@ injector:
     # The name of the service account to use.
     # If not set and create is true, a name is generated using the fullname template
     name: ""
-
-  rbac:
-    create: true
 
   matchPolicy: Equivalent
   failurePolicy: Ignore

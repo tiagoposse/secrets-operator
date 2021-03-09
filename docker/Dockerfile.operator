@@ -2,7 +2,8 @@ FROM registry.tiagoposse.com/kscp-base:1.0.0
 
 RUN pip install --pre kopf
 
-COPY controller /app/controller
-COPY operator /app/operator
+COPY kscp/controller /app/controller
+COPY kscp/operator /app/operator
 
-ENTRYPOINT [ "python", "/app/operator/main.py" ]
+WORKDIR /app/operator
+ENTRYPOINT [ "kopf", "run", "--log-format=full", "-v", "main.py", "secrets.py", "secretbindings.py" ]
