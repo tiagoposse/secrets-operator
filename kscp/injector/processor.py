@@ -1,6 +1,6 @@
-from flask.globals import current_app
 import kubernetes
 
+from flask.globals import current_app
 from os import environ
 
 class KSCPProcessor:
@@ -16,7 +16,7 @@ class KSCPProcessor:
   def get_k8s_conf_for_request(self, auth):
       configuration = kubernetes.client.Configuration()
       configuration.api_key["authorization"] = auth
-      configuration.api_key_prefix['authorization'] = 'Bearer'
+
       configuration.host = f"https://{ self.__k8s_host }"
       configuration.ssl_ca_cert = self.__k8s_ca_cert
 
@@ -43,6 +43,7 @@ class KSCPProcessor:
         return e.status, e.reason
 
       current_app.logger.debug(secret_desc.get('spec'))
+      
       values = self.__controller.get_secret(secret_desc.get('spec'))
 
       return 200, values

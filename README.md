@@ -1,45 +1,68 @@
-# secrets-operator
+
+Kubernetes Secrets Control Plane is an open source project that provides a way to manage external secrets as kubernetes resources.
+
+# Releases
+
+| Release | Release Date |
+| --- | --- |
+| v1.0    |              |
+| --- | --- |
 
 
-# Installing the plugin
+# Overview
 
+KSCP is composed of 2 main components:
+- An operator responsible for managing the secrets in the backends
+- A webhook/webserver responsible for mutating pods to inject an init container and for answering secret read requests
 
-
-# Using Vault backend
-
-Currently only authentication via kubernetes role is supported.
+Create secrets in a backend using an ExternalSecret:
 
 ```
-backends:
-  vault:
-    enabled: true
-    address: http://vault.vault.svc.cluster.local
-    token_path: /vault/secrets/token
+apiVersion: kscp.io/v1alpha1
+kind: ExternalSecret
+metadata:
+  name: test-vault
+  namespace: default
+spec:
+  backend: vault
+  values:
+    pass: gen
 ```
 
-Policy for both injector and controller:
+The values inserted here are supposed to be placeholders, not the actual values. Read more (here)[/docs/reference/secrets.md]
+
+Access to the secrets is controlled via kubernetes roles and rolebindings that couple a service account to ExternalSecrets. Example:
+
 ```
-vault policy write kscp - <<EOF
-path "kv/data/*" {
-  capabilities = ["read"]
-}
-EOF
+apiVersion: kscp.io/v1alpha1
+kind: SecretBinding
+metadata:
+  name: test-simple
+  namespace: test
+spec:
+  serviceAccount: test
+  secrets:
+    - name: test-vault
+    - name: test-aws
+  template: |
+    password={{ test-vault.pass }}
+    security_code={{ test-aws.sec_code }}
+  target: /tmp/secrets
 ```
 
-Kubernetes role for the injector:
+SecretBindings are not required to be used, they are simply an abstraction that is translated into kubernetes roles and role bindings.
+
+Pods can then access the secrets through annotations:
 ```
-vault write auth/kubernetes/role/kscp-injector \
-    bound_service_account_names=kscp-injector \
-    bound_service_account_namespaces=secretsplane \
-    policies=kscp \
-    ttl=1h
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+  namespace: test
+  annotations:
+    secrets.kscp.io/inject-bindings: "test-vault,test-aws"
+...
 ```
 
-Kubernetes role for the controller:
-```
-vault write auth/kubernetes/role/kscp-controller \
-    bound_service_account_names=kscp-controller \
-    bound_service_account_namespaces=secretsplane \
-    policies=kscp \
-    ttl=1h
-```
+The webhook will deal with expanding this annotation and injecting an init container into the pod, that will deal with retrieving the secrets and rendering the template accordingly.
+

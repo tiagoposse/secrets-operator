@@ -1,10 +1,10 @@
 apiVersion: kscp.io/v1alpha1
 kind: SecretBinding
 metadata:
-  name: test
+  name: test-simple
   namespace: test
 spec:
   serviceAccount: test
   secrets:
-    - name: test
-      backend: vault
+    - name: test-vault
+    - name: test-aws

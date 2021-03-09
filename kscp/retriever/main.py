@@ -31,11 +31,9 @@ def main():
       empty_template = False
       template = b.get('template')
 
-    logger.debug("Retrieving secrets:")
-    logger.debug(b.get('secrets').split(','))
     for name in b.get('secrets').split(','):
       resp = requests.post(f"{ processor_addr }/readsecret", {
-        'auth': k8s_token,
+        'auth': f"Bearer { k8s_token }",
         'name': name,
         'namespace': b.get('namespace')
       },

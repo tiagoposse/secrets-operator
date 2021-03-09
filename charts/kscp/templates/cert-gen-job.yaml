@@ -15,6 +15,7 @@ spec:
       containers:
         - name: certificate-generator
           image: "{{ .Values.certificateGenerator.image.repository }}:{{ .Values.certificateGenerator.image.tag | default "latest" }}"
+          imagePullPolicy: {{ .Values.certificateGenerator.image.pullPolicy }}
           command:
             - ./generate_certificate.sh
           args:

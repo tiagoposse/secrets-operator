@@ -5,7 +5,7 @@ metadata:
   name: test
   namespace: test
   annotations:
-    secrets.kscp.io/inject-bindings: "test"
+    secrets.kscp.io/inject-bindings: "test-simple,test-with-configs"
 spec:
   serviceAccountName: test
   containers:

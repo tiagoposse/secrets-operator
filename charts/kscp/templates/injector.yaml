@@ -46,7 +46,7 @@ spec:
             - name: KSCP_BACKENDS
               value: {{ include "kscp.backends" . }}
             - name: BACKEND_AUTH
-              value: {{ .Values.backendRBAC }}
+              value: {{ .Values.secretRBAC.backend | quote }}
             {{- if .Values.backends.aws.enabled }}
             - name: AWS_SHARED_CREDENTIALS_FILE
               value: {{ .Values.backends.aws.credentialsPath }}

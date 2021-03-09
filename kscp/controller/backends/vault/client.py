@@ -2,6 +2,8 @@ import hvac
 import logging
 import os
 
+from controller.exceptions import KSCPException
+
 logger = logging.getLogger('tool')
 
 def get_vault_client() -> hvac.Client:
@@ -21,7 +23,7 @@ def get_vault_client() -> hvac.Client:
     if client.is_authenticated():
         return client
     else:
-        raise Exception("Authentication to vault unsuccessful")
+        raise KSCPException(500, "Authentication to vault unsuccessful")
 
 
 # def __login_approle(self):

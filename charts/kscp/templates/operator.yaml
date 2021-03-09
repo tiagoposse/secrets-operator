@@ -40,9 +40,9 @@ spec:
             - name: KSCP_BACKENDS
               value: {{ include "kscp.backends" . }}
             - name: BACKEND_AUTH
-              value: {{ .Values.rbac.backend }}
+              value: {{ .Values.secretRBAC.backend | quote }}
             - name: ALLOW_BY_DEFAULT
-              value: {{ .Values.rbac.defaultAllow }}
+              value: {{ .Values.secretRBAC.defaultAllow | quote }}
             {{- range $name, $value := .Values.operator.env }}
             - name: {{ $name }}
               value: {{ $value }}
@@ -69,20 +69,6 @@ spec:
             - name: GCP_PROJECT_ID
               value: {{ .Values.backends.gc.projectID }}
             {{- end }}
-          # ports:
-          #   - name: http
-          #     containerPort: 443
-          #     protocol: TCP
-          # livenessProbe:
-          #   httpGet:
-          #     path: /
-          #     port: http
-          #     scheme: HTTPS
-          # readinessProbe:
-          #   httpGet:
-          #     path: /
-          #     port: http
-          #     scheme: HTTPS
           resources:
             {{- toYaml .Values.operator.resources | nindent 12 }}
       {{- with .Values.operator.nodeSelector }}

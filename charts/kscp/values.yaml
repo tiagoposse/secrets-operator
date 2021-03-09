@@ -7,7 +7,7 @@ fullnameOverride: ""
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-rbac:
+secretRBAC:
   backend: false
   defaultAllow: false
 
@@ -22,13 +22,11 @@ backends:
   aws:
     enabled: false
     accountID: ""
-    credentialsPath: ""
     region: ""
   
   gcp:
     enabled: false
     projectID: ""
-    credentialsPath: ""
 
 init:
   image:
@@ -50,6 +48,9 @@ injector:
 
   certPath: /tlsconfig/tls.crt
   keyPath: /tlsconfig/tls.key
+
+  rbac:
+    create: true
 
   serviceAccount:
     # Specifies whether a service account should be created
@@ -88,9 +89,9 @@ certificateGenerator:
 
   autoApproveCertificate: false
   image:
-    repository: newrelic/k8s-webhook-cert-manager
+    repository: registry.tiagoposse.com/kscp-cert-gen
     pullPolicy: IfNotPresent
-    tag: 1.4.0-pre
+    tag: 1.0.0
 
   serviceAccount:
     # Specifies whether a service account should be created

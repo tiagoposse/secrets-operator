@@ -1,0 +1,15 @@
+apiVersion: kscp.io/v1alpha1
+kind: SecretBinding
+metadata:
+  name: test-with-configs
+  namespace: test
+spec:
+  serviceAccount: test
+  secrets:
+    - name: test-vault
+    - name: test-aws
+  template: |
+    vault={{ test-vault.pass }}
+    gcp={{ test-gcp.pass }}
+    gcp_test={{ test-gcp.gcp }}
+  target: /tmp/test.txt

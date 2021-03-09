@@ -1,6 +1,6 @@
 FROM registry.tiagoposse.com/kscp-base:1.0.0
 
-RUN pip install --pre kopf
+RUN pip install --pre kopf && pip install jsonpatch
 
 COPY kscp/controller /app/controller
 COPY kscp/operator /app/operator

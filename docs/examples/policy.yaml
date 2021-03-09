@@ -1,10 +1,10 @@
 apiVersion: kscp.io/v1alpha1
-kind: VaultPolicy
+kind: SecretPolicy
 metadata:
   name: test
-spec:
-  rules:
-  - path: test
-    capabilities:
-      - read
-      - create
+  namespace: test
+allow:
+  - pattern: "kv/test.+"
+    backends:
+    - vault
+  - pattern: ".+test"

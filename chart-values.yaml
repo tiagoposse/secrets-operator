@@ -5,6 +5,8 @@ fullnameOverride: kscp
 certificateGenerator:
   enabled: true
   autoApproveCertificate: true
+  image:
+    pullPolicy: Always
 
 injector:
   enabled: true

@@ -1,3 +1,5 @@
+import base64
+import json
 import logging
 import sys
 
@@ -7,18 +9,15 @@ from ssl import SSLContext, PROTOCOL_TLSv1_2
 
 sys.path.append(path.join(path.dirname(path.abspath(__file__)), "../"))
 
-from controller.crd_processors.secretbindings import SecretBindingsController
-from controller.crd_processors.secrets import SecretsController
-from controller.controller import KSCPController
+from controller.main import get_controllers
 from injector.processor import KSCPProcessor
 from injector.webhook import mutate
 
 app = Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
 
-controller = KSCPController()
-sb_controller = SecretBindingsController(controller)
-processor = KSCPProcessor(SecretsController(controller))
+s_controller, sb_controller = get_controllers()
+processor = KSCPProcessor(s_controller)
 
 @app.route('/mutate', methods=['POST'])
 def mutate_webhook():
@@ -36,6 +35,7 @@ def mutate_webhook():
 
   return jsonify(admissionReview)
 
+
 @app.route("/healthz", methods=["GET"])
 def health():
   return jsonify()
@@ -43,10 +43,12 @@ def health():
 if environ.get('USE_PROCESSOR'):
   @app.route('/readsecret', methods=['POST'])
   def read_secret():
+    data = json.loads(request.data)
+
     ret_code, values = processor.process_secret_read(
-      request.form.get('auth'),
-      request.form.get('name'),
-      request.form.get('namespace')
+      data.get('auth'),
+      data.get('name'),
+      data.get('namespace')
     )
 
     return jsonify({'data': values }), ret_code

@@ -3,6 +3,7 @@ import json
 from os import environ
 from google.cloud import secretmanager
 
+from controller.backends.gcp.model import GCPSecret
 
 def get_api_instance():
   return GCPBackend()
@@ -13,71 +14,73 @@ class GCPBackend:
     self.__project_id = f"{ environ.get('GCP_PROJECT_ID') }"
 
 
-  def create_secret(self, name, namespace, spec) -> str:
+  def get_object(self, name, namespace, path, values, config):
+    return GCPSecret(name, namespace, path, values, **config)
+  
+
+  def create_secret(self, secret: GCPSecret):
     '''
       Process the creation of an gcpsecrets resource
     '''
 
     # Build a dict of settings for the secret
     secret = {'replication': {'automatic': {}}}
-    secret_name = spec.get('path')
 
     # Create the secret
     self.__client.create_secret(
-      secret_id=secret_name,
+      secret_id=secret.get_path(),
       parent=f"projects/{ self.__project_id }",
       secret=secret
     )
 
-    path = self.__client.secret_path(self.__project_id, secret_name)
-    self.__add_secret_version(
-      path,
-      spec.get('values')
-    )
-
-    return path
+    self.__add_secret_version(secret)
 
 
-  def get_secret(self, spec) -> dict:
+  def get_secret(self, secret: GCPSecret) -> dict:
     '''
       Get the secret from the backend and return as json
     '''
 
-    path = self.__client.secret_path(self.__project_id, spec.get('path'))
+    path = self.__client.secret_path(self.__project_id, secret.get_path())
 
     response = self.__client.access_secret_version(request={"name": f"{ path }/versions/latest" })
     return json.loads(response.payload.data.decode("UTF-8"))
 
 
-  def delete_secret(self, name, namespace, spec):
+  def delete_secret(self, secret: GCPSecret):
     '''
       Process the deletion of an gcpsecrets resource
     '''
-    path = self.__client.secret_path(self.__project_id, spec.get('path'))
+    path = self.__client.secret_path(self.__project_id, secret.get_path())
 
     self.__client.delete_secret(request={"name": path})
 
 
-  def update_secret(self, name, namespace, __trigger_move, __trigger_value_change, old_spec, new_spec):
+  def update_secret(self, __trigger_value_change: bool, old_secret: GCPSecret, new_secret: GCPSecret):
     '''
       Process the update of an gcpsecrets resource
     '''
 
-    if __trigger_move:
-      self.delete_secret(name, namespace, old_spec)
-      self.create_secret(name, namespace, new_spec)
+    if old_secret.get_path() != new_secret.get_path():
+      self.delete_secret(old_secret)
+      self.create_secret(new_secret)
+
     elif __trigger_value_change:
-      path = self.__client.secret_path(self.__project_id, new_spec.get('path'))
-      self.__add_secret_version(path, new_spec.get('values'))
+      self.__add_secret_version(new_secret)
 
 
-  def __add_secret_version(self, path, payload):
+  def __add_secret_version(self, secret: GCPSecret):
       '''
       Create a new version for the secret using the new values
       '''
 
       response = self.__client.add_secret_version(
-          request={"parent": path, "payload": {"data": json.dumps(payload).encode('utf-8') }}
+        request = {
+          "parent": self.__client.secret_path(self.__project_id, secret.get_path()),
+          "payload": {
+            "data": json.dumps(secret.get_creation_values()).encode('utf-8')
+          }
+        }
       )
 
       # Print the new secret version name.
